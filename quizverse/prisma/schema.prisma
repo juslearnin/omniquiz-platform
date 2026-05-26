@@ -1,0 +1,181 @@
+datasource db {
+  provider = "postgresql"
+  
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  SCHOOL_STUDENT
+  COLLEGE_STUDENT
+  QM
+  PUB_HOST
+  QUIZZER
+  QUIZ_CLUB
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model User {
+  id               String            @id @default(uuid())
+  name             String
+  email            String            @unique
+  phone            String            @unique
+  password         String
+  role             UserRole
+  isVerified       Boolean           @default(false)
+  verificationType String            @default("EMAIL")
+  isPremium        Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  profile          Profile?
+  uploadedSets     QuizSet[]         @relation("UploaderRelation")
+  viewLogs         QuizViewLog[]
+  downloadLogs     QuizDownloadLog[]
+  ratingsGiven     QuizRating[]      
+  teamListings     TeammateListing[]
+}
+
+model VerificationToken {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, token])
+}
+
+model Profile {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  institutionName String?  
+  admissionNumber String?  
+  companyName     String?  
+  venueAddress    String?  
+
+  bio             String?   @db.Text
+  dateOfBirth     DateTime? 
+  idProofToken    String?   
+  baseRate        String?   
+  avatarUrl       String?   
+  
+  creatorLevel    Int       @default(1)  
+  contributions   Int       @default(0)  
+  globalDownloads Int       @default(0)  
+  streaks         Int       @default(0)
+  ratingAverage   Float     @default(0.0)
+
+  @@index([institutionName])
+  @@index([companyName])
+}
+
+model QuizSet {
+  id              String        @id @default(uuid())
+  title           String
+  description     String?       @db.Text
+  genre           String
+  difficulty      Difficulty    @default(MEDIUM)
+  price           Int           @default(0)
+  fileUrl         String        
+  fileType        String        
+  hostedVenue     String?       
+  coverImageUrl   String?       
+  isPremium       Boolean       @default(false) 
+  isPlagiarized   Boolean       @default(false) // 🌟 ANTI-PLAGIARISM CRITERIA CHECK FLAG
+  
+  questionCount   Int           @default(20)    
+  audioUrl        String?                       
+  videoUrl        String?                       
+  mediaSlideIndex Int?                          
+
+  eventName       String?       
+  hostName        String?       
+  dateConducted   DateTime?     
+  signedAffidavit Boolean       @default(false) 
+  
+  uniqueViews     Int           @default(0)
+  downloadCount   Int           @default(0)
+  ratingAverage   Float         @default(0.0)
+
+  uploaderId      String
+  uploader        User          @relation("UploaderRelation", fields: [uploaderId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  views           QuizViewLog[]
+  downloadLogs    QuizDownloadLog[]
+  ratings         QuizRating[]  
+
+  bundleId        String?
+  bundle          QuizBundle?   @relation(fields: [bundleId], references: [id], onDelete: SetNull)
+
+  @@index([genre])
+  @@index([title])
+  @@index([isPremium])
+}
+
+model QuizBundle {
+  id           String    @id @default(uuid())
+  title        String
+  description  String?   @db.Text
+  discountRate Int       @default(15) 
+  totalPrice   Int
+  createdAt    DateTime  @default(now())
+  
+  quizSets     QuizSet[]
+}
+
+model QuizViewLog {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId   String
+  quiz     QuizSet  @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  viewedAt DateTime @default(now())
+
+  @@index([userId, viewedAt])
+  @@unique([userId, quizId])
+}
+
+model QuizDownloadLog {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId       String
+  quiz         QuizSet  @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  downloadedAt DateTime @default(now())
+
+  @@index([userId, downloadedAt])
+  @@unique([userId, quizId])
+}
+
+model QuizRating {
+  id         String   @id @default(uuid())
+  score      Int      
+  reviewText String?  @db.Text 
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId     String
+  quiz       QuizSet  @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, quizId]) 
+}
+
+model TeammateListing {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetEventName String
+  slotsNeeded     Int      @default(1)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+}
